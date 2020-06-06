@@ -79,6 +79,7 @@ navigator.mediaDevices.getUserMedia({ video: true, audio: true })
             video.autoplay=true;
             video.srcObject = stream
             video.setAttribute('class', 'embed-responsive-item')
+            video.setAttribute('playsinline', '')
             document.querySelector('#peerDiv').appendChild(video)
             video.play()
             //wait for 1 sec
