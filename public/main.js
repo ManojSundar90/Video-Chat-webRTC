@@ -1,4 +1,3 @@
-
 let Peer = require('simple-peer')
 let socket = io()
 const video = document.querySelector('video')
@@ -23,13 +22,14 @@ navigator.mediaDevices.getUserMedia({ video: true, audio: true })
         //used to initialize a peer
         function InitPeer(type) {
             let peer = new Peer({ initiator: (type == 'init') ? true : false, stream: stream, trickle: false })
+            //when we get the stream from the other user, we need to create another view
             peer.on('stream', function (stream) {
                 CreateVideo(stream)
             })
             //This isn't working in chrome; works perfectly in firefox.
             // peer.on('close', function () {
-            //     document.getElementById("peerVideo").remove();
-            //     peer.destroy()
+            //     document.getElementById("peerVideo").remove(); //remove by id
+            //     peer.destroy() //not complusory, but helps in cleaning up
             // })
             peer.on('data', function (data) {
                 let decodedData = new TextDecoder('utf-8').decode(data)
@@ -39,28 +39,32 @@ navigator.mediaDevices.getUserMedia({ video: true, audio: true })
             return peer
         }
 
-        //for peer of type init
+        //for peer of type init to send the offer
         function MakePeer() {
-            client.gotAnswer = false
-            let peer = InitPeer('init')
-            peer.on('signal', function (data) {
+            client.gotAnswer = false // we will first take our client object and initialize answer property to false, 
+                                        // since we need to wait for the answer from another peer
+            let peer = InitPeer('init') //we will get the peer back using the initpeer function of type init
+            peer.on('signal', function (data) { //since the peer is of type init, it will already run the signal function and send the offer
                 if (!client.gotAnswer) {
-                    socket.emit('Offer', data)
+                    socket.emit('Offer', data) //event name is offer and we will send our data
                 }
             })
-            client.peer = peer
+            client.peer = peer // finally we have to set peer as a property
+            //so the client has two property, gotAnswer and peer 
         }
 
         //for peer of type not init
         function FrontAnswer(offer) {
             let peer = InitPeer('notInit')
-            peer.on('signal', (data) => {
+            peer.on('signal', (data) => { // once we receive the offer we need to emit the answer
                 socket.emit('Answer', data)
             })
-            peer.signal(offer)
+            peer.signal(offer)//since signal is not transmitted automatically, we need to use this to call the signal to
+                                // generate and send the answer
             client.peer = peer
         }
-
+//if we reveive the answer, we will set the client.gotanswer to true and signal answer to our peer and
+//finally both the clients will be connected 
         function SignalAnswer(answer) {
             client.gotAnswer = true
             let peer = client.peer
@@ -87,7 +91,7 @@ navigator.mediaDevices.getUserMedia({ video: true, audio: true })
             })
 
         }
-
+//this will be called when already two people are chatting and someone else tries to open the url
         function SessionActive() {
             document.write('Session Active. Please come back later')
         }
@@ -105,9 +109,10 @@ navigator.mediaDevices.getUserMedia({ video: true, audio: true })
                 client.peer.destroy()
             }
         }
+//events for which the functions mentioned above will run
 
-        socket.on('BackOffer', FrontAnswer)
-        socket.on('BackAnswer', SignalAnswer)
+        socket.on('BackOffer', FrontAnswer)//so for backoffer we need to call the fron answer also to get the answer
+        socket.on('BackAnswer', SignalAnswer)//so when you get the offer from the back , you need to run the signal answer
         socket.on('SessionActive', SessionActive)
         socket.on('CreatePeer', MakePeer)
         socket.on('Disconnect', RemovePeer)
